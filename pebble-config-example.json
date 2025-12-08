@@ -1,0 +1,18 @@
+{
+  "Cache": null,
+  "Comparer": null,
+  "MemTableSize": 67108864,
+  "MemTableStopWritesThreshold": 2,
+  "LBaseMaxBytes": 67108864,
+  "L0CompactionThreshold": 4,
+  "L0CompactionFileThreshold": 500,
+  "L0StopWritesThreshold": 12,
+  "LevelMultiplier": 10,
+  "MaxOpenFiles": 1000,
+  "MaxConcurrentCompactions": 1,
+  "DisableWAL": false,
+  "WALDir": "",
+  "WALBytesPerSync": 0,
+  "BytesPerSync": 524288,
+  "FlushSplitBytes": 4194304
+}

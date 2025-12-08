@@ -1,0 +1,6 @@
+{
+  "MemTableSize": 16777216,
+  "MaxOpenFiles": 500,
+  "L0CompactionThreshold": 2,
+  "L0StopWritesThreshold": 8
+}
