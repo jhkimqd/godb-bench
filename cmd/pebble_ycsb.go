@@ -1,20 +1,23 @@
 package cmd
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/magiconair/properties"
 	"github.com/pingcap/go-ycsb/pkg/client"
+	"github.com/pingcap/go-ycsb/pkg/measurement"
 	"github.com/pingcap/go-ycsb/pkg/prop"
 	"github.com/pingcap/go-ycsb/pkg/ycsb"
 	"github.com/spf13/cobra"
 
 	_ "github.com/jihwankim/polygon-benchmarks/godb-bench/db"
-	"github.com/jihwankim/polygon-benchmarks/godb-bench/metrics"
 	_ "github.com/pingcap/go-ycsb/pkg/workload"
 )
 
@@ -23,6 +26,62 @@ var (
 	propertyValues []string
 	workloadFile   string
 )
+
+// formatMetricsTable captures YCSB output and formats it as a table
+func formatMetricsTable() {
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// Get the output
+	measurement.Output()
+
+	// Restore stdout
+	w.Close()
+	os.Stdout = oldStdout
+
+	// Read captured output
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	// Parse and format as table
+	fmt.Println("\n" + strings.Repeat("═", 132))
+	fmt.Println("                                    YCSB BENCHMARK RESULTS")
+	fmt.Println(strings.Repeat("═", 132))
+
+	// Table header
+	fmt.Printf("│ %-12s │ %10s │ %10s │ %9s │ %9s │ %9s │ %9s │ %9s │ %9s │ %9s │\n",
+		"Operation", "Takes(s)", "Count", "OPS", "Avg(µs)", "p50(µs)", "p95(µs)", "p99(µs)", "p99.9(µs)", "Max(µs)")
+	fmt.Println(strings.Repeat("─", 132))
+
+	// Parse each line
+	scanner := bufio.NewScanner(strings.NewReader(output))
+	re := regexp.MustCompile(`^(\S+)\s+-\s+Takes\(s\):\s+([\d.]+),\s+Count:\s+(\d+),\s+OPS:\s+([\d.]+),\s+Avg\(us\):\s+(\d+),\s+Min\(us\):\s+(\d+),\s+Max\(us\):\s+(\d+),\s+50th\(us\):\s+(\d+),\s+90th\(us\):\s+(\d+),\s+95th\(us\):\s+(\d+),\s+99th\(us\):\s+(\d+),\s+99\.9th\(us\):\s+(\d+)`)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		matches := re.FindStringSubmatch(line)
+		if len(matches) > 0 {
+			op := matches[1]
+			takes := matches[2]
+			count := matches[3]
+			ops := matches[4]
+			avg := matches[5]
+			p50 := matches[8]
+			p95 := matches[10]
+			p99 := matches[11]
+			p999 := matches[12]
+			max := matches[7]
+
+			fmt.Printf("│ %-12s │ %10s │ %10s │ %9s │ %9s │ %9s │ %9s │ %9s │ %9s │ %9s │\n",
+				op, takes, count, ops, avg, p50, p95, p99, p999, max)
+		}
+	}
+
+	fmt.Println(strings.Repeat("═", 132))
+}
 
 var ycsbCmd = &cobra.Command{
 	Use:   "ycsb",
@@ -66,6 +125,14 @@ var ycsbCmd = &cobra.Command{
 		dbName := "pebble"
 		props.Set(prop.DB, dbName)
 
+		// Enable measurement output if not already set
+		if props.GetString(prop.MeasurementType, "") == "" {
+			props.Set(prop.MeasurementType, "histogram")
+		}
+
+		// Make sure we do transactions (not just load)
+		props.Set(prop.DoTransactions, "true")
+
 		// The workload file should be loaded as a property file.
 		// See https://github.com/pingcap/go-ycsb/blob/master/cmd/go-ycsb/main.go
 		if f, err := os.Open(workloadFile); err != nil {
@@ -108,25 +175,35 @@ var ycsbCmd = &cobra.Command{
 		}
 		defer db.Close()
 
-		// Wrap the database with metrics tracking
-		collector := metrics.NewCollector()
-		trackedDB := metrics.NewTrackedDB(db, collector)
+		// Initialize YCSB measurement system
+		measurement.InitMeasure(props)
 
-		c := client.NewClient(props, wl, trackedDB)
+		// Wrap DB with measurement wrapper
+		wrappedDB := client.DbWrapper{DB: db}
+
+		c := client.NewClient(props, wl, wrappedDB)
+
+		fmt.Println("Running workload...")
 		c.Run(context.Background())
 
-		// Print metrics summary
-		fmt.Println("\n" + strings.Repeat("=", 80))
+		fmt.Println("Workload completed. Generating metrics...")
 
-		// Try to get PebbleDB-specific metrics
+		// Print YCSB metrics in table format
+		formatMetricsTable()
+
+		// Print PebbleDB-specific metrics if available
 		type pebbleMetricsProvider interface {
 			Metrics() interface{}
 		}
-		var dbMetrics interface{}
 		if pdb, ok := db.(pebbleMetricsProvider); ok {
-			dbMetrics = pdb.Metrics()
+			fmt.Println("\n" + strings.Repeat("=", 80))
+			fmt.Println("PebbleDB Metrics:")
+			fmt.Println(strings.Repeat("=", 80))
+			if metrics := pdb.Metrics(); metrics != nil {
+				if s, ok := metrics.(fmt.Stringer); ok {
+					fmt.Println(s.String())
+				}
+			}
 		}
-
-		collector.PrintSummary(dbMetrics)
 	},
 }

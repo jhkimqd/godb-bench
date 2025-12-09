@@ -1,5 +1,5 @@
-recordcount=1000
-operationcount=1000
+recordcount=100000
+operationcount=100000
 workload=core
 
 readallfields=true

@@ -9,12 +9,12 @@ import (
 
 	"github.com/magiconair/properties"
 	"github.com/pingcap/go-ycsb/pkg/client"
+	"github.com/pingcap/go-ycsb/pkg/measurement"
 	"github.com/pingcap/go-ycsb/pkg/prop"
 	"github.com/pingcap/go-ycsb/pkg/ycsb"
 	"github.com/spf13/cobra"
 
 	_ "github.com/jihwankim/polygon-benchmarks/godb-bench/db"
-	"github.com/jihwankim/polygon-benchmarks/godb-bench/metrics"
 	_ "github.com/pingcap/go-ycsb/pkg/workload"
 )
 
@@ -34,7 +34,6 @@ var triedbYcsbCmd = &cobra.Command{
 		}
 
 		props := properties.NewProperties()
-		// Load properties from file
 		if triedbPropertyFile != "" {
 			f, err := os.Open(triedbPropertyFile)
 			if err != nil {
@@ -53,7 +52,6 @@ var triedbYcsbCmd = &cobra.Command{
 			}
 		}
 
-		// Load properties from command line
 		for _, p := range triedbPropertyValues {
 			parts := strings.SplitN(p, "=", 2)
 			if len(parts) != 2 {
@@ -66,8 +64,11 @@ var triedbYcsbCmd = &cobra.Command{
 		dbName := "triedb"
 		props.Set(prop.DB, dbName)
 
-		// The workload file should be loaded as a property file.
-		// See https://github.com/pingcap/go-ycsb/blob/master/cmd/go-ycsb/main.go
+		// Enable measurement output if not already set
+		if props.GetString(prop.MeasurementType, "") == "" {
+			props.Set(prop.MeasurementType, "histogram")
+		}
+
 		if f, err := os.Open(triedbWorkloadFile); err != nil {
 			fmt.Printf("Failed to open workload file %s: %v\n", triedbWorkloadFile, err)
 			os.Exit(1)
@@ -108,15 +109,17 @@ var triedbYcsbCmd = &cobra.Command{
 		}
 		defer db.Close()
 
-		// Wrap the database with metrics tracking
-		collector := metrics.NewCollector()
-		trackedDB := metrics.NewTrackedDB(db, collector)
+		measurement.InitMeasure(props)
 
-		c := client.NewClient(props, wl, trackedDB)
+		// Wrap DB with measurement wrapper
+		wrappedDB := client.DbWrapper{DB: db}
+
+		c := client.NewClient(props, wl, wrappedDB)
+
+		fmt.Println("Running workload...")
 		c.Run(context.Background())
 
-		// Print metrics summary
-		fmt.Println("\n" + strings.Repeat("=", 80))
-		collector.PrintSummary(nil) // TrieDB doesn't expose detailed metrics yet
+		fmt.Println("Workload completed. Generating metrics...")
+		formatMetricsTable()
 	},
 }

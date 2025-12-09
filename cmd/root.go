@@ -33,7 +33,6 @@ func initCommands() {
 
 	// Add triedb command and its subcommands
 	RootCmd.AddCommand(triedbCmd)
-	triedbCmd.AddCommand(triedbBenchCmd)
 	triedbCmd.AddCommand(triedbYcsbCmd)
 	triedbYcsbCmd.Flags().StringVarP(&triedbWorkloadFile, "workload", "w", "", "Path to the YCSB workload file")
 	triedbYcsbCmd.Flags().StringVarP(&triedbPropertyFile, "property_file", "P", "", "Path to the YCSB property file")
