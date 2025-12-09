@@ -2,6 +2,10 @@
 
 A CLI tool to run YCSB benchmarks on PebbleDB and TrieDB with support for custom configurations.
 
+## Why another db benchmarking tool?
+
+AFAIK (please correct me if I'm missing something) - there is no Go-based benchmarking tool which would allow us to compare the performances of popular EVM based clients' db engines like PebbleDB, and the new TrieDB. The aim of this tool is to allow for a convenient apples-to-apples comparison of the db engines for a provided configuration.
+
 ## Quick Start
 
 ```bash
