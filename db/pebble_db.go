@@ -58,6 +58,11 @@ func (p *pebbleDB) Delete(ctx context.Context, table string, key string) error {
 	return p.db.Delete([]byte(key), pebble.Sync)
 }
 
+// Metrics returns the PebbleDB metrics
+func (p *pebbleDB) Metrics() *pebble.Metrics {
+	return p.db.Metrics()
+}
+
 type pebbleCreator struct{}
 
 func (c pebbleCreator) Create(p *properties.Properties) (ycsb.DB, error) {

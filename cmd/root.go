@@ -22,6 +22,8 @@ func Execute() {
 }
 
 func initCommands() {
+	RootCmd.CompletionOptions.DisableDefaultCmd = true
+
 	// Add pebble command and its subcommands
 	RootCmd.AddCommand(pebbleCmd)
 	pebbleCmd.AddCommand(ycsbCmd)

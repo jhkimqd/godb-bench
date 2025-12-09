@@ -14,10 +14,10 @@ require (
 
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
-	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
-	github.com/base/triedb-go v0.0.0
+	github.com/HdrHistogram/hdrhistogram-go v1.1.2
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/cffls/triedb-go v0.0.0
 	github.com/cockroachdb/errors v1.11.3 // indirect
 	github.com/cockroachdb/fifo v0.0.0-20240606204812-0bbfbd93a7ce // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
@@ -49,4 +49,4 @@ require (
 	google.golang.org/protobuf v1.33.0 // indirect
 )
 
-replace github.com/base/triedb-go => /home/jihwankim/polygon-benchmarks/triedb-go/triedb-go
+replace github.com/cffls/triedb-go => ../triedb-go/triedb-go

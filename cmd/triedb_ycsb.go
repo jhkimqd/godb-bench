@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	_ "github.com/jihwankim/polygon-benchmarks/godb-bench/db"
+	"github.com/jihwankim/polygon-benchmarks/godb-bench/metrics"
 	_ "github.com/pingcap/go-ycsb/pkg/workload"
 )
 
@@ -107,7 +108,15 @@ var triedbYcsbCmd = &cobra.Command{
 		}
 		defer db.Close()
 
-		c := client.NewClient(props, wl, db)
+		// Wrap the database with metrics tracking
+		collector := metrics.NewCollector()
+		trackedDB := metrics.NewTrackedDB(db, collector)
+
+		c := client.NewClient(props, wl, trackedDB)
 		c.Run(context.Background())
+
+		// Print metrics summary
+		fmt.Println("\n" + strings.Repeat("=", 80))
+		collector.PrintSummary(nil) // TrieDB doesn't expose detailed metrics yet
 	},
 }

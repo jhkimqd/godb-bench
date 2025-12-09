@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	triedb "github.com/base/triedb-go"
+	triedb "github.com/cffls/triedb-go"
 	"github.com/holiman/uint256"
 	"github.com/magiconair/properties"
 	"github.com/pingcap/go-ycsb/pkg/ycsb"
