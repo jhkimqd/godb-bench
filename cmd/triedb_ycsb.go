@@ -113,7 +113,8 @@ var triedbYcsbCmd = &cobra.Command{
 		measurement.InitMeasure(props)
 
 		// Wrap DB with measurement wrapper
-		wrappedDB := client.DbWrapper{DB: db}
+		tracker := metrics.NewOperationTracker(db)
+		wrappedDB := client.DbWrapper{DB: tracker}
 
 		c := client.NewClient(props, wl, wrappedDB)
 
@@ -121,6 +122,6 @@ var triedbYcsbCmd = &cobra.Command{
 		c.Run(context.Background())
 
 		fmt.Println("Workload completed. Generating metrics...")
-		metrics.FormatMetricsTable()
+		metrics.FormatMetricsTable(tracker)
 	},
 }

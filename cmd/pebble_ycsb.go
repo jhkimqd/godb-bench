@@ -121,7 +121,8 @@ var ycsbCmd = &cobra.Command{
 		measurement.InitMeasure(props)
 
 		// Wrap DB with measurement wrapper
-		wrappedDB := client.DbWrapper{DB: db}
+		tracker := metrics.NewOperationTracker(db)
+		wrappedDB := client.DbWrapper{DB: tracker}
 
 		c := client.NewClient(props, wl, wrappedDB)
 
@@ -131,7 +132,7 @@ var ycsbCmd = &cobra.Command{
 		fmt.Println("Workload completed. Generating metrics...")
 
 		// Print YCSB metrics in table format
-		metrics.FormatMetricsTable()
+		metrics.FormatMetricsTable(tracker)
 
 		// Print PebbleDB-specific metrics if available
 		type pebbleMetricsProvider interface {
