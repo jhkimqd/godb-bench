@@ -68,6 +68,9 @@ type pebbleCreator struct{}
 func (c pebbleCreator) Create(p *properties.Properties) (ycsb.DB, error) {
 	path := p.GetString("datadir", "/tmp/pebble")
 
+	// Check if we should use an existing database or create new
+	useExisting := p.GetBool("pebble.use_existing", true)
+
 	// Check if a config file is specified for custom options
 	configFile := p.GetString("pebble.config", "")
 	var opts *pebble.Options
@@ -105,9 +108,35 @@ func (c pebbleCreator) Create(p *properties.Properties) (ycsb.DB, error) {
 		opts.MaxOpenFiles = int(p.GetInt("pebble.max_open_files", 1000))
 	}
 
-	db, err := pebble.Open(path, opts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open pebble database at %s: %w", path, err)
+	var db *pebble.DB
+	var err error
+
+	if useExisting {
+		// Try to open existing database first
+		db, err = pebble.Open(path, opts)
+		if err != nil {
+			// If opening fails, clean the directory and create a new one
+			fmt.Printf("Failed to open existing database, creating new one at %s\n", path)
+			if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
+				return nil, fmt.Errorf("failed to clean database directory at %s: %w", path, err)
+			}
+			db, err = pebble.Open(path, opts)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create database at %s: %w", path, err)
+			}
+		} else {
+			fmt.Printf("Using existing database at %s\n", path)
+		}
+	} else {
+		// Force create new database - clean directory first
+		fmt.Printf("Creating new database at %s\n", path)
+		if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to clean database directory at %s: %w", path, err)
+		}
+		db, err = pebble.Open(path, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create new database at %s (use pebble.use_existing=true to open existing): %w", path, err)
+		}
 	}
 
 	return &pebbleDB{db: db}, nil

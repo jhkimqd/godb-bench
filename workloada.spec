@@ -1,6 +1,7 @@
 recordcount=10000
 operationcount=10000
 workload=core
+warmuptime=1
 
 readallfields=true
 
