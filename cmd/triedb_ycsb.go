@@ -124,6 +124,9 @@ var triedbYcsbCmd = &cobra.Command{
 		fmt.Println("Workload completed. Generating metrics...")
 		metrics.FormatMetricsTable(tracker)
 
+		// Print additional statistics (criterion-style)
+		tracker.PrintStatistics()
+
 		// Generate criterion-style plots
 		plotsDir := "./benchmark_plots"
 		fmt.Printf("\nGenerating benchmark plots in %s...\n", plotsDir)

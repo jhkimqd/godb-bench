@@ -203,3 +203,11 @@ func (ot *OperationTracker) GeneratePlots(outputDir string) error {
 
 	return nil
 }
+
+// PrintStatistics prints criterion-style additional statistics
+func (ot *OperationTracker) PrintStatistics() {
+	ot.mu.Lock()
+	defer ot.mu.Unlock()
+
+	ot.plots.PrintStatistics()
+}
