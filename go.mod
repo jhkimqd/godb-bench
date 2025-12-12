@@ -10,11 +10,20 @@ require (
 	github.com/magiconair/properties v1.8.10
 	github.com/pingcap/go-ycsb v1.0.1
 	github.com/spf13/cobra v1.10.2
+	gonum.org/v1/plot v0.0.0-20190515093506-e2840ee46a6b
+)
+
+require (
+	github.com/ajstarks/svgo v0.0.0-20180226025133-644b8db467af // indirect
+	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90 // indirect
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
+	github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5 // indirect
+	golang.org/x/image v0.0.0-20190802002840-cff245a6509b // indirect
 )
 
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
-	github.com/HdrHistogram/hdrhistogram-go v1.1.2
+	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cffls/triedb-go v0.0.0

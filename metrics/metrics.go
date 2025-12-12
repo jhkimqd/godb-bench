@@ -20,6 +20,7 @@ type OperationTracker struct {
 	ycsb.DB
 	mu      sync.Mutex
 	timings map[string]*OperationTiming
+	plots   *BenchmarkPlots
 }
 
 type OperationTiming struct {
@@ -32,6 +33,7 @@ func NewOperationTracker(db ycsb.DB) *OperationTracker {
 	return &OperationTracker{
 		DB:      db,
 		timings: make(map[string]*OperationTiming),
+		plots:   NewBenchmarkPlots(),
 	}
 }
 
@@ -47,6 +49,9 @@ func (ot *OperationTracker) track(op string, start time.Time) {
 
 	ot.timings[op].Count++
 	ot.timings[op].TotalTime += elapsed
+
+	// Record sample for plotting (sample index auto-increments)
+	ot.plots.AddSample(op, elapsed)
 }
 
 func (ot *OperationTracker) Insert(ctx context.Context, table string, key string, values map[string][]byte) error {
@@ -185,4 +190,16 @@ func FormatMetricsTable(tracker *OperationTracker) {
 	}
 
 	fmt.Println(strings.Repeat("═", tableWidth))
+}
+
+// GeneratePlots creates criterion-style scatter plots for the tracked operations
+func (ot *OperationTracker) GeneratePlots(outputDir string) error {
+	ot.mu.Lock()
+	defer ot.mu.Unlock()
+
+	if err := ot.plots.GeneratePlots(outputDir); err != nil {
+		return fmt.Errorf("failed to generate plots: %w", err)
+	}
+
+	return nil
 }

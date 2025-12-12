@@ -123,5 +123,14 @@ var triedbYcsbCmd = &cobra.Command{
 
 		fmt.Println("Workload completed. Generating metrics...")
 		metrics.FormatMetricsTable(tracker)
+
+		// Generate criterion-style plots
+		plotsDir := "./benchmark_plots"
+		fmt.Printf("\nGenerating benchmark plots in %s...\n", plotsDir)
+		if err := tracker.GeneratePlots(plotsDir); err != nil {
+			fmt.Printf("Warning: failed to generate plots: %v\n", err)
+		} else {
+			fmt.Printf("Plots generated successfully in %s\n", plotsDir)
+		}
 	},
 }
