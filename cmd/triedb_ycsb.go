@@ -125,10 +125,10 @@ var triedbYcsbCmd = &cobra.Command{
 		metrics.FormatMetricsTable(tracker)
 
 		// Print additional statistics (criterion-style)
-		tracker.PrintStatistics()
+		// tracker.PrintStatistics()
 
 		// Generate criterion-style plots
-		plotsDir := "./benchmark_plots"
+		plotsDir := "./triedb_benchmark_plots"
 		fmt.Printf("\nGenerating benchmark plots in %s...\n", plotsDir)
 		if err := tracker.GeneratePlots(plotsDir); err != nil {
 			fmt.Printf("Warning: failed to generate plots: %v\n", err)

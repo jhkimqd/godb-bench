@@ -66,6 +66,7 @@ func (bp *BenchmarkPlots) GeneratePlots(outputDir string) error {
 // generateSampleTimesPlot creates a scatter plot of sample time vs sample index
 // Each point represents one sample, showing the progression of operation times
 func (bp *BenchmarkPlots) generateSampleTimesPlot(operation string, samples []SampleData, outputDir string) error {
+	fmt.Printf("DEBUG: Generating plot for operation '%s' with %d samples.\n", operation, len(samples))
 	p, err := plot.New()
 	if err != nil {
 		return fmt.Errorf("failed to create plot: %w", err)
@@ -98,7 +99,8 @@ func (bp *BenchmarkPlots) generateSampleTimesPlot(operation string, samples []Sa
 	p.Add(plotter.NewGrid())
 
 	// Save the plot
-	filename := filepath.Join(outputDir, fmt.Sprintf("%s_sample_times.png", operation))
+	timestamp := time.Now().Format("20060102-150405")
+	filename := filepath.Join(outputDir, fmt.Sprintf("%s_%s_sample_times.png", operation, timestamp))
 	if err := p.Save(8*vg.Inch, 6*vg.Inch, filename); err != nil {
 		return fmt.Errorf("failed to save plot: %w", err)
 	}

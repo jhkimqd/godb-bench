@@ -13,10 +13,10 @@ AFAIK (please correct me if I'm missing something) - there is no Go-based benchm
 go build -o godb-bench
 
 # Run PebbleDB benchmark
-./godb-bench pebble ycsb --workload ./workloada.spec
+./godb-bench pebble ycsb --workload ./workload.spec
 
 # Run TrieDB benchmark
-./godb-bench triedb ycsb --workload ./workloada.spec
+./godb-bench triedb ycsb --workload ./workload.spec
 ```
 
 ## Available Commands
@@ -29,7 +29,7 @@ go build -o godb-bench
 
 ## YCSB Workload File
 
-Create a workload file (e.g., `workloada.spec`):
+Create a workload file (e.g., `workload.spec`):
 
 ```properties
 recordcount=1000
@@ -305,7 +305,7 @@ rm -rf /tmp/pebble-a /tmp/pebble-b /tmp/test-*
 See example configuration files:
 - `pebble-config-example.json` - Full PebbleDB configuration template
 - `pebble-config-test.json` - Simple test configuration
-- `workloada.spec` - Example YCSB workload
+- `workload.spec` - Example YCSB workload
 
 ## Architecture
 

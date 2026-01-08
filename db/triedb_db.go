@@ -116,6 +116,99 @@ func (t *trieDB) Delete(ctx context.Context, table string, key string) error {
 	return nil
 }
 
+// BatchInsert inserts multiple records in a single transaction
+func (t *trieDB) BatchInsert(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	tx, err := t.db.BeginRW()
+	if err != nil {
+		return fmt.Errorf("failed to begin write transaction: %w", err)
+	}
+
+	for i, key := range keys {
+		// In YCSB, there is only one field per record
+		for _, value := range values[i] {
+			slot := keyToSlot(key)
+			hash := bytesToHash(value)
+
+			if err := tx.SetStorage(t.account, slot, &hash); err != nil {
+				tx.Rollback()
+				return fmt.Errorf("failed to write key %s in batch: %w", key, err)
+			}
+			break // Only one field in YCSB
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit batch transaction: %w", err)
+	}
+	return nil
+}
+
+// BatchUpdate updates multiple records in a single transaction
+func (t *trieDB) BatchUpdate(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+	return t.BatchInsert(ctx, table, keys, values)
+}
+
+// BatchRead reads multiple records (uses separate read transactions for simplicity)
+func (t *trieDB) BatchRead(ctx context.Context, table string, keys []string, fields []string) ([]map[string][]byte, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
+	tx, err := t.db.BeginRO()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin read transaction: %w", err)
+	}
+	defer tx.Commit()
+
+	results := make([]map[string][]byte, len(keys))
+	for i, key := range keys {
+		slot := keyToSlot(key)
+		value, err := tx.GetStorage(t.account, slot)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read key %s in batch: %w", key, err)
+		}
+
+		if value == nil {
+			return nil, fmt.Errorf("key not found in batch: %s", key)
+		}
+
+		data := make(map[string][]byte)
+		data[fields[0]] = value[:]
+		results[i] = data
+	}
+
+	return results, nil
+}
+
+// BatchDelete deletes multiple records in a single transaction
+func (t *trieDB) BatchDelete(ctx context.Context, table string, keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	tx, err := t.db.BeginRW()
+	if err != nil {
+		return fmt.Errorf("failed to begin write transaction: %w", err)
+	}
+
+	for _, key := range keys {
+		slot := keyToSlot(key)
+		if err := tx.SetStorage(t.account, slot, nil); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to delete key %s in batch: %w", key, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit batch delete transaction: %w", err)
+	}
+	return nil
+}
+
 type triedbCreator struct{}
 
 func (c triedbCreator) Create(p *properties.Properties) (ycsb.DB, error) {

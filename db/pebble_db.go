@@ -58,6 +58,79 @@ func (p *pebbleDB) Delete(ctx context.Context, table string, key string) error {
 	return p.db.Delete([]byte(key), pebble.Sync)
 }
 
+// BatchInsert inserts multiple records in a single batch
+func (p *pebbleDB) BatchInsert(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	batch := p.db.NewBatch()
+	defer batch.Close()
+
+	for i, key := range keys {
+		// In YCSB, there is only one field per record
+		for _, value := range values[i] {
+			if err := batch.Set([]byte(key), value, pebble.Sync); err != nil {
+				return fmt.Errorf("failed to add key %s to batch: %w", key, err)
+			}
+			break // Only one field in YCSB
+		}
+	}
+
+	if err := batch.Commit(pebble.Sync); err != nil {
+		return fmt.Errorf("failed to commit batch: %w", err)
+	}
+	return nil
+}
+
+// BatchUpdate updates multiple records in a single batch
+func (p *pebbleDB) BatchUpdate(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+	return p.BatchInsert(ctx, table, keys, values)
+}
+
+// BatchRead reads multiple records
+func (p *pebbleDB) BatchRead(ctx context.Context, table string, keys []string, fields []string) ([]map[string][]byte, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
+	results := make([]map[string][]byte, len(keys))
+	for i, key := range keys {
+		value, closer, err := p.db.Get([]byte(key))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read key %s in batch: %w", key, err)
+		}
+
+		data := make(map[string][]byte)
+		data[fields[0]] = value
+		results[i] = data
+		closer.Close()
+	}
+
+	return results, nil
+}
+
+// BatchDelete deletes multiple records in a single batch
+func (p *pebbleDB) BatchDelete(ctx context.Context, table string, keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	batch := p.db.NewBatch()
+	defer batch.Close()
+
+	for _, key := range keys {
+		if err := batch.Delete([]byte(key), pebble.Sync); err != nil {
+			return fmt.Errorf("failed to add key %s to delete batch: %w", key, err)
+		}
+	}
+
+	if err := batch.Commit(pebble.Sync); err != nil {
+		return fmt.Errorf("failed to commit delete batch: %w", err)
+	}
+	return nil
+}
+
 // Metrics returns the PebbleDB metrics
 func (p *pebbleDB) Metrics() *pebble.Metrics {
 	return p.db.Metrics()
@@ -112,11 +185,14 @@ func (c pebbleCreator) Create(p *properties.Properties) (ycsb.DB, error) {
 	var err error
 
 	if useExisting {
-		// Try to open existing database first
+		// Check if the database directory exists before trying to open it.
+		_, statErr := os.Stat(path)
+		dbExists := !os.IsNotExist(statErr)
+
 		db, err = pebble.Open(path, opts)
 		if err != nil {
-			// If opening fails, clean the directory and create a new one
-			fmt.Printf("Failed to open existing database, creating new one at %s\n", path)
+			// If opening fails, it might be corrupted. Clean and recreate.
+			fmt.Printf("Failed to open database at %s (%v), recreating...\n", path, err)
 			if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
 				return nil, fmt.Errorf("failed to clean database directory at %s: %w", path, err)
 			}
@@ -124,8 +200,13 @@ func (c pebbleCreator) Create(p *properties.Properties) (ycsb.DB, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to create database at %s: %w", path, err)
 			}
+			fmt.Printf("Created new database at %s\n", path)
 		} else {
-			fmt.Printf("Using existing database at %s\n", path)
+			if dbExists {
+				fmt.Printf("Using existing database at %s\n", path)
+			} else {
+				fmt.Printf("Created new database at %s\n", path)
+			}
 		}
 	} else {
 		// Force create new database - clean directory first

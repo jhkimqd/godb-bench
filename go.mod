@@ -1,8 +1,6 @@
 module github.com/jihwankim/polygon-benchmarks/godb-bench
 
-go 1.21
-
-toolchain go1.23.0
+go 1.25.5
 
 require (
 	github.com/cockroachdb/pebble v1.1.5

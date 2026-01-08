@@ -89,6 +89,149 @@ func (ot *OperationTracker) Delete(ctx context.Context, table string, key string
 	return err
 }
 
+// Batch operation tracking - implement ycsb.BatchDB interface
+func (ot *OperationTracker) BatchInsert(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+	// Track each operation individually for metrics
+	start := time.Now()
+
+	// Check if underlying DB supports batch operations
+	if batchDB, ok := ot.DB.(ycsb.BatchDB); ok {
+		err := batchDB.BatchInsert(ctx, table, keys, values)
+		// Track the entire batch time, but distribute it across individual operations
+		elapsed := time.Since(start)
+		perOpTime := elapsed / time.Duration(len(keys))
+
+		ot.mu.Lock()
+		if _, exists := ot.timings["INSERT"]; !exists {
+			ot.timings["INSERT"] = &OperationTiming{StartTime: start}
+		}
+		ot.timings["INSERT"].Count += int64(len(keys))
+		ot.timings["INSERT"].TotalTime += elapsed
+
+		// Record ONE sample per batch (not per operation in the batch)
+		// This keeps sample index aligned with actual batch calls
+		ot.plots.AddSample("INSERT", perOpTime)
+		ot.mu.Unlock()
+
+		return err
+	}
+
+	// Fallback to individual operations if batch not supported
+	for i, key := range keys {
+		opStart := time.Now()
+		err := ot.DB.Insert(ctx, table, key, values[i])
+		ot.track("INSERT", opStart)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ot *OperationTracker) BatchUpdate(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+	start := time.Now()
+
+	if batchDB, ok := ot.DB.(ycsb.BatchDB); ok {
+		err := batchDB.BatchUpdate(ctx, table, keys, values)
+		elapsed := time.Since(start)
+		perOpTime := elapsed / time.Duration(len(keys))
+
+		ot.mu.Lock()
+		if _, exists := ot.timings["UPDATE"]; !exists {
+			ot.timings["UPDATE"] = &OperationTiming{StartTime: start}
+		}
+		ot.timings["UPDATE"].Count += int64(len(keys))
+		ot.timings["UPDATE"].TotalTime += elapsed
+
+		// Record ONE sample per batch (not per operation in the batch)
+		ot.plots.AddSample("UPDATE", perOpTime)
+		ot.mu.Unlock()
+
+		return err
+	}
+
+	for i, key := range keys {
+		opStart := time.Now()
+		err := ot.DB.Update(ctx, table, key, values[i])
+		ot.track("UPDATE", opStart)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ot *OperationTracker) BatchRead(ctx context.Context, table string, keys []string, fields []string) ([]map[string][]byte, error) {
+	start := time.Now()
+
+	if batchDB, ok := ot.DB.(ycsb.BatchDB); ok {
+		results, err := batchDB.BatchRead(ctx, table, keys, fields)
+		elapsed := time.Since(start)
+		perOpTime := elapsed / time.Duration(len(keys))
+
+		ot.mu.Lock()
+		if _, exists := ot.timings["READ"]; !exists {
+			ot.timings["READ"] = &OperationTiming{StartTime: start}
+		}
+		// Count all attempted reads, regardless of individual key errors
+		ot.timings["READ"].Count += int64(len(keys))
+		ot.timings["READ"].TotalTime += elapsed
+
+		// Record ONE sample per batch (not per key)
+		ot.plots.AddSample("READ", perOpTime)
+		ot.mu.Unlock()
+
+		// Note: BatchRead may return partial results with err != nil
+		// Don't treat the entire batch as an error
+		return results, err
+	}
+
+	results := make([]map[string][]byte, len(keys))
+	for i, key := range keys {
+		opStart := time.Now()
+		result, err := ot.DB.Read(ctx, table, key, fields)
+		ot.track("READ", opStart)
+		if err != nil {
+			return nil, err
+		}
+		results[i] = result
+	}
+	return results, nil
+}
+
+func (ot *OperationTracker) BatchDelete(ctx context.Context, table string, keys []string) error {
+	start := time.Now()
+
+	if batchDB, ok := ot.DB.(ycsb.BatchDB); ok {
+		err := batchDB.BatchDelete(ctx, table, keys)
+		elapsed := time.Since(start)
+		perOpTime := elapsed / time.Duration(len(keys))
+
+		ot.mu.Lock()
+		if _, exists := ot.timings["DELETE"]; !exists {
+			ot.timings["DELETE"] = &OperationTiming{StartTime: start}
+		}
+		ot.timings["DELETE"].Count += int64(len(keys))
+		ot.timings["DELETE"].TotalTime += elapsed
+
+		// Record ONE sample per batch (not per operation in the batch)
+		ot.plots.AddSample("DELETE", perOpTime)
+		ot.mu.Unlock()
+
+		return err
+	}
+
+	for _, key := range keys {
+		opStart := time.Now()
+		err := ot.DB.Delete(ctx, table, key)
+		ot.track("DELETE", opStart)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // FormatMetricsTable captures YCSB output and formats it as a table
 func FormatMetricsTable(tracker *OperationTracker) {
 	// Capture stdout
